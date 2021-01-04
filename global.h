@@ -6,7 +6,7 @@ int Tamano;
 extern int Tamano;
 #endif
 
-struct nodo {
+struct Nodo {
     float x, y;
     float demanda;
     int tipo;
@@ -15,7 +15,8 @@ struct nodo {
 
 struct Vehiculo {
     int id;
-    float peso;
+    float dem_line;
+    float dem_back;
     float dist_total;
     vector <int> tour;
 };
@@ -25,11 +26,18 @@ struct Vehiculo {
 char* arch_entrada;
 char* arch_salida;
 int debug;
+int cantVehiculos;
+float capacidad;
 
 
+// Arreglos
 int **dist;
-nodo *nodos;
+Nodo *nodos;
 Vehiculo *autos;
+vector<int> id_nodos;
 
+// Funciones
 void leer_archivo(void);
 int parametros_de_entrada(int, char **);
+int busqueda_de_rutas(int *, int*, int, int);
+vector<int> filtrar(vector<int>, int);

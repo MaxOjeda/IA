@@ -10,7 +10,8 @@ void leer_archivo(void) {
     int read = fscanf(arch, "%d", &Tamano);
 
     // Creacion de arreglo de nodos
-    nodos = new nodo[Tamano];
+    nodos = new Nodo[Tamano];
+    
     // Arreglo de distancias
     dist = new int*[Tamano];
     for (int i = 0; i < Tamano; i++){
@@ -46,18 +47,30 @@ void leer_archivo(void) {
     }
 
     int n_vehiculos;
-    float capacidad;
-    read =  fscanf(arch, "%d %f\n", &n_vehiculos, &capacidad);
-    Vehiculo autos[n_vehiculos];
+    float cap;
+    // Lectura de cantidad de vehiculos y capacidad
+    read =  fscanf(arch, "%d %f\n", &n_vehiculos, &cap);
+    // Creacion de lista de los vehiculos con configuraciones iniciales
+    cantVehiculos = n_vehiculos;
+    capacidad = cap;
+    cout<<cantVehiculos<<" "<<capacidad<<endl;
+    // Creacion de arreglo de vehiculos
+    autos = new Vehiculo[n_vehiculos];
     for(int i = 0; i < n_vehiculos; i++){
        autos[i].id = i+1;
-       autos[i].peso = 0;
-       autos[i].dist_total = MAX;
-       autos[i].tour = vector<int>(Tamano,1);
+       autos[i].dem_line = 0;
+       autos[i].dem_back = 0;
+       autos[i].dist_total = 0;
+       autos[i].tour = vector<int> {1};
+    }
+    
+    for(int k=0;k<n_vehiculos;k++){
+        cout<<autos[k].id<<" "<<autos[k].dem_line<<" "<<autos[k].dist_total<<endl;
     }
     
     int nodeID;
     float demand;
+    // Setear la demanda de los nodos (clientes linehaul y backhaul)
     for(int j = 0; j < (Tamano-1); j++){
         int read = fscanf(arch, "%d %f\n", &nodeID, &demand);
         nodos[nodeID-1].demanda += demand;
@@ -87,9 +100,132 @@ int parametros_de_entrada(int argc, char **argv) {
     return 1;
 }
 
+void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculos, int nodoActual){
+    // Se revisa si no quedan nodos
+    if (clientes.size() == 0 && nVehiculos == 0){
+        cout<<"TODAS LAS RUTAS\n";
+        // Mostrar rutas
+        for(int i = 0; i < cantVehiculos; i++){
+            for(const auto& value: autos[i].tour) {
+            cout << value << "->";
+            }
+        cout<<"\n";
+        }
+        return;
+    }else{
+        int idxVeh = nVehiculos-1;
+
+        // Cuando no queden nodos disponibles para una ruta
+        if(clientes.size() == 0){
+            // Agregar nodo deposito a la ruta
+            autos[idxVeh].tour.push_back(nodos[0].id);
+            cout<<"Ruta final veh "<<nVehiculos<<"\n";
+            for(const auto& value: autos[idxVeh].tour) {
+                cout << value << "-->";
+            }
+            cout<<"\n";
+            // Crear nuevo vector de nodos sin los que ya fueron ocupados
+            vector <int> temp = id_nodos;
+            for(int i=0; i<autos[idxVeh].tour.size(); i++){
+                temp.erase(remove(temp.begin(), temp.end(), autos[idxVeh].tour[i]), temp.end());
+            }
+            //Cambiar de vehiculo
+            nVehiculos -= 1;
+            cout<<"ALOOOOO "<<nVehiculos<<" "<<temp.size()<<"\n";
+            busqueda_de_rutas(temp, temp, nVehiculos, 0);
+            autos[idxVeh].tour.pop_back();
+            return;
+        }
+        else{
+            if(autos[idxVeh].tour.size() > 2 && autos[idxVeh].tour.back() == 1){
+                return;
+            }
+            for(int i=0; i < clientes.size(); i++){
+                int nodoNuevo = clientes[i]-1;
+                float distancia = dist[nodoActual][nodoNuevo];
+                float newPeso = nodos[nodoNuevo].demanda;
+                vector <int> clientesFiltrados = clientes;
+                
+                // Cliente tipo Linehaul
+                if (nodos[nodoNuevo].tipo == 1) {
+                    autos[idxVeh].dem_line += newPeso;
+                    autos[idxVeh].dist_total += distancia;
+                    autos[idxVeh].tour.push_back(nodos[nodoNuevo].id);
 
 
+                    for(const auto& value: autos[idxVeh].tour) {
+                        cout << value << "-->";
+                    }
+                    cout<<"\n";
 
+                    cout<<"Antes\n";
+                    for(int z=0; z<clientesFiltrados.size(); z++){
+                        cout<<clientesFiltrados[z]<<"; ";
+                    }
+                    cout<<"\n";
+
+                    clientesFiltrados.erase(clientesFiltrados.begin());
+                    clientesFiltrados = filtrar(clientesFiltrados, idxVeh);
+                    
+                    cout<<"Despues\n";
+                    for(int z=0; z<clientesFiltrados.size(); z++){
+                        cout<<clientesFiltrados[z]<<"; ";
+                    }
+                    cout<<"\n\n";
+                    //busqueda_de_rutas(clientesFiltrados, Tamano, nVehiculos, nodoNuevo);
+
+                    
+                }else if(nodos[nodoNuevo].tipo == 2){
+                    autos[idxVeh].dem_back += newPeso;
+                    autos[idxVeh].dist_total += distancia;
+                    autos[idxVeh].tour.push_back(nodos[nodoNuevo].id);
+
+                    for(const auto& value: autos[idxVeh].tour) {
+                        cout << value << "-->";
+                    }
+                    cout<<"\n";
+
+                    cout<<"Antes\n";
+                    for(int z=0; z<clientesFiltrados.size(); z++){
+                        cout<<clientesFiltrados[z]<<"; ";
+                    }
+                    cout<<"\n";
+
+                    clientesFiltrados.erase(clientesFiltrados.begin());
+                    clientesFiltrados = filtrar(clientesFiltrados, idxVeh);
+
+                    cout<<"Despues\n";
+                    for(int z=0; z<clientesFiltrados.size(); z++){
+                        cout<<clientesFiltrados[z]<<"; ";
+                    }
+                    cout<<"\n\n";
+                    //busqueda_de_rutas(clientesFiltrados, Tamano, nVehiculos, nodoNuevo);
+                }
+                busqueda_de_rutas(clientesFiltrados, id_nodos, nVehiculos, nodoNuevo);
+                
+            }
+        }
+    }
+    return;
+}
+
+vector<int> filtrar(vector<int> v_nodos, int idxVehiculo){
+    vector<int> borrar;
+    int idxNodo;
+    for(int i=0; i<v_nodos.size(); i++){
+        idxNodo = nodos[v_nodos[i]-2].id; // Indice del nodo en el vector Nodo *nodos
+        if((nodos[idxNodo].tipo == 1) && (autos[idxVehiculo].dem_line + nodos[idxNodo].demanda > capacidad)){
+            borrar.push_back(v_nodos[i]);
+        }else if((nodos[idxNodo].tipo == 2) && (autos[idxVehiculo].dem_back + nodos[idxNodo].demanda > capacidad)){
+            borrar.push_back(v_nodos[i]);
+        }
+    }
+    // Eliminar nodos que no seran comptabiles
+    for(int j=0; j<borrar.size(); j++){
+        v_nodos.erase(remove(v_nodos.begin(), v_nodos.end(), borrar[j]), v_nodos.end());
+    }
+    return v_nodos;
+}
 
 
 int main (int argc, char *argv[]){
@@ -97,8 +233,14 @@ int main (int argc, char *argv[]){
         cout<<"Error al leer los parametros de entrada";
         exit(1);
     }
-
+    cout<<"Y aqui?\n";
     leer_archivo();
+
+    // Vector de nodos sin el deposito
+    for(int i = 1; i < Tamano; i++)
+        id_nodos.push_back(nodos[i].id);
+    
+    busqueda_de_rutas(id_nodos, id_nodos, cantVehiculos, 0);
 
     return 0;
 }
