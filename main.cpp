@@ -100,25 +100,54 @@ int parametros_de_entrada(int argc, char **argv) {
     return 1;
 }
 
+
+void evaluar(){
+    float sum = 0;
+    for(int i=0; i<cantVehiculos; i++){
+        sum += autos[i].dist_total;
+    }
+    cout<<"DISTANCIA: "<<sum<<"\n";
+    if(sum < menor_distancia){
+        menor_distancia = sum;
+        for(int j=0; j<cantVehiculos; j++){
+            mejores[j] = autos[j];
+        }
+    }
+}
+
 void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculos, int nodoActual){
     // Se revisa si no quedan nodos
     if (clientes.size() == 0 && nVehiculos == 0){
         cout<<"TODAS LAS RUTAS\n";
         // Mostrar rutas
+        float dist_deposito;
+        int ultimo_nodo;
         for(int i = 0; i < cantVehiculos; i++){
+            ultimo_nodo = autos[i].tour.back() - 1;
+            dist_deposito = dist[ultimo_nodo][0];
+            autos[i].dist_total += dist_deposito;
+            autos[i].tour.push_back(nodos[0].id);
+            
             for(const auto& value: autos[i].tour) {
             cout << value << "->";
-            }
+            }   
         cout<<"\n";
+        }evaluar();
+        cout<<"M. DISTANCIA: "<<menor_distancia<<"\n";
+        cout<<"\n";
+        for(int i = 0; i < cantVehiculos; i++){
+            autos[i].tour.pop_back();
+            ultimo_nodo = autos[i].tour.back() - 1;
+            autos[i].dist_total -= dist[ultimo_nodo][0];
         }
+        
         return;
+    
     }else{
         int idxVeh = nVehiculos-1;
 
         // Cuando no queden nodos disponibles para una ruta
         if(clientes.size() == 0){
-            // Agregar nodo deposito a la ruta
-            autos[idxVeh].tour.push_back(nodos[0].id);
             cout<<"Ruta final veh "<<nVehiculos<<"\n";
             for(const auto& value: autos[idxVeh].tour) {
                 cout << value << "-->";
@@ -129,12 +158,14 @@ void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculo
             for(int i=0; i<autos[idxVeh].tour.size(); i++){
                 temp.erase(remove(temp.begin(), temp.end(), autos[idxVeh].tour[i]), temp.end());
             }
+
+
             //Cambiar de vehiculo
-            nVehiculos -= 1;
+            nVehiculos -= 1;    
             cout<<"ALOOOOO "<<nVehiculos<<" "<<temp.size()<<"\n";
+            //autos[idxVeh].tour.pop_back();
             busqueda_de_rutas(temp, temp, nVehiculos, 0);
-            autos[idxVeh].tour.pop_back();
-            return;
+            
         }
         else{
             if(autos[idxVeh].tour.size() > 2 && autos[idxVeh].tour.back() == 1){
@@ -164,7 +195,7 @@ void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculo
                     }
                     cout<<"\n";
 
-                    clientesFiltrados.erase(clientesFiltrados.begin());
+                    clientesFiltrados.erase(clientesFiltrados.begin() + i);
                     clientesFiltrados = filtrar(clientesFiltrados, idxVeh);
                     
                     cout<<"Despues\n";
@@ -202,6 +233,14 @@ void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculo
                     //busqueda_de_rutas(clientesFiltrados, Tamano, nVehiculos, nodoNuevo);
                 }
                 busqueda_de_rutas(clientesFiltrados, id_nodos, nVehiculos, nodoNuevo);
+                int ultimo_nodo = autos[idxVeh].tour.back() - 1;
+                if(nodos[ultimo_nodo].tipo == 1){
+                    autos[idxVeh].dem_line -= nodos[ultimo_nodo].demanda;
+                }else{
+                    autos[idxVeh].dem_back -= nodos[ultimo_nodo].demanda;
+                }
+                autos[idxVeh].tour.pop_back();
+                autos[idxVeh].dist_total -= newPeso;
                 
             }
         }
@@ -236,10 +275,12 @@ int main (int argc, char *argv[]){
     cout<<"Y aqui?\n";
     leer_archivo();
 
+    mejores  = autos;
     // Vector de nodos sin el deposito
     for(int i = 1; i < Tamano; i++)
         id_nodos.push_back(nodos[i].id);
     
+    menor_distancia = MAX;
     busqueda_de_rutas(id_nodos, id_nodos, cantVehiculos, 0);
 
     return 0;

@@ -28,12 +28,14 @@ char* arch_salida;
 int debug;
 int cantVehiculos;
 float capacidad;
+float menor_distancia;
 
 
 // Arreglos
 int **dist;
 Nodo *nodos;
 Vehiculo *autos;
+Vehiculo *mejores;
 vector<int> id_nodos;
 
 // Funciones
