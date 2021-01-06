@@ -176,6 +176,10 @@ void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculo
                 float distancia = dist[nodoActual][nodoNuevo];
                 float newPeso = nodos[nodoNuevo].demanda;
                 vector <int> clientesFiltrados = clientes;
+
+                if(find(autos[idxVeh].tour.begin(),autos[idxVeh].tour.end(), nodos[nodoNuevo].id) != autos[idxVeh].tour.end() || autos[idxVeh].tour.back() == nodos[nodoNuevo].id){
+                    return;
+                }
                 
                 // Cliente tipo Linehaul
                 if (nodos[nodoNuevo].tipo == 1) {
@@ -240,7 +244,7 @@ void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculo
                     autos[idxVeh].dem_back -= nodos[ultimo_nodo].demanda;
                 }
                 autos[idxVeh].tour.pop_back();
-                autos[idxVeh].dist_total -= newPeso;
+                autos[idxVeh].dist_total -= distancia;
                 
             }
         }
