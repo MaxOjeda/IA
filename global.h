@@ -29,6 +29,10 @@ int debug;
 int cantVehiculos;
 float capacidad;
 float menor_distancia;
+int saltos;
+int nodoRetorno;
+bool retorno;
+int stop;
 
 
 // Arreglos
@@ -37,9 +41,11 @@ Nodo *nodos;
 Vehiculo *autos;
 Vehiculo *mejores;
 vector<int> id_nodos;
+vector<int> *conflicto;
 
 // Funciones
 void leer_archivo(void);
 int parametros_de_entrada(int, char **);
 int busqueda_de_rutas(int *, int*, int, int);
 vector<int> filtrar(vector<int>, int);
+void gbc(vector<int>);

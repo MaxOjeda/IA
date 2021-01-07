@@ -12,6 +12,9 @@ void leer_archivo(void) {
     // Creacion de arreglo de nodos
     nodos = new Nodo[Tamano];
     
+    // Creacion de conjuntos de conflicto (CBJ)
+    conflicto = new vector<int>[Tamano-1];
+
     // Arreglo de distancias
     dist = new int*[Tamano];
     for (int i = 0; i < Tamano; i++){
@@ -115,7 +118,39 @@ void evaluar(){
     }
 }
 
+void gbc(vector<int> clientes){
+    int nodo_conf = clientes.front();
+    float dem = nodos[nodo_conf].demanda;
+    bool flag = false;
+    for(int i=cantVehiculos; i>0; i--){
+        if(flag == true) break;
+        float demline = 0, demback = 0;
+        for(const auto& value: autos[i-1].tour){
+            if(nodos[value-1].tipo == 1){
+                demline += nodos[value-1].demanda;
+                if(demline + dem > capacidad){
+                    conflicto[nodo_conf-2].push_back(value);
+                    flag = true;
+                    break;
+                }
+            }else{
+                demback += nodos[value-1].demanda;
+                if(demback + dem > capacidad){
+                    conflicto[nodo_conf-2].push_back(value);
+                    flag = true;
+                    break;
+                }
+            }
+        }
+    }nodoRetorno = conflicto[nodo_conf-2].front() - 1;
+    cout<<"NODO CONFLICTO"<< nodoRetorno+1<<"\n";
+    conflicto[nodo_conf-2] = {};
+    return;
+}
+
 void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculos, int nodoActual){
+    if(stop == 2500000) return;
+    stop++;
     // Se revisa si no quedan nodos
     if (clientes.size() == 0 && nVehiculos == 0){
         cout<<"TODAS LAS RUTAS\n";
@@ -140,12 +175,16 @@ void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculo
             ultimo_nodo = autos[i].tour.back() - 1;
             autos[i].dist_total -= dist[ultimo_nodo][0];
         }
-        
         return;
     
+    }else if(clientes.size() > 0 && nVehiculos == 0){
+        cout<<"Solucion infactible\n";
+        gbc(clientes);
+        retorno = false;
+        return;
+
     }else{
         int idxVeh = nVehiculos-1;
-
         // Cuando no queden nodos disponibles para una ruta
         if(clientes.size() == 0){
             cout<<"Ruta final veh "<<nVehiculos<<"\n";
@@ -158,7 +197,6 @@ void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculo
             for(int i=0; i<autos[idxVeh].tour.size(); i++){
                 temp.erase(remove(temp.begin(), temp.end(), autos[idxVeh].tour[i]), temp.end());
             }
-
 
             //Cambiar de vehiculo
             nVehiculos -= 1;    
@@ -176,6 +214,10 @@ void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculo
                 float distancia = dist[nodoActual][nodoNuevo];
                 float newPeso = nodos[nodoNuevo].demanda;
                 vector <int> clientesFiltrados = clientes;
+
+                if(find(autos[idxVeh].tour.begin(),autos[idxVeh].tour.end(), nodos[nodoNuevo].id) != autos[idxVeh].tour.end() || autos[idxVeh].tour.back() == nodos[nodoNuevo].id){
+                    return;
+                }
                 
                 // Cliente tipo Linehaul
                 if (nodos[nodoNuevo].tipo == 1) {
@@ -240,8 +282,12 @@ void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculo
                     autos[idxVeh].dem_back -= nodos[ultimo_nodo].demanda;
                 }
                 autos[idxVeh].tour.pop_back();
-                autos[idxVeh].dist_total -= newPeso;
-                
+                autos[idxVeh].dist_total -= distancia;
+                if (retorno == false && nodoRetorno != nodoActual){
+                    saltos +=1;
+                    cout<<"SALTO: "<<saltos<<" Nodo actual:" <<nodoActual+1<<" Tour size: "<<autos[idxVeh].tour.size()<<"\n";
+                    return;}
+                retorno = true;
             }
         }
     }
@@ -281,7 +327,10 @@ int main (int argc, char *argv[]){
         id_nodos.push_back(nodos[i].id);
     
     menor_distancia = MAX;
+    saltos = 0;
+    stop = 0;
     busqueda_de_rutas(id_nodos, id_nodos, cantVehiculos, 0);
+
 
     return 0;
 }

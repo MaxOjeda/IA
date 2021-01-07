@@ -3,7 +3,7 @@ comp=g++
 prog=VRPB+FC+CBJ
 
 #El problema
-entrada=Instancias/GA1.txt
+entrada=Instancias/GM1.txt
 salida=GA1.txt
 debug=1
 
