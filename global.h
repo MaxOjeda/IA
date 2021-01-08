@@ -29,6 +29,10 @@ int debug;
 int cantVehiculos;
 float capacidad;
 float menor_distancia;
+int saltos;
+int nodoRetorno;
+bool cbj_flag;
+int stop;
 
 
 // Arreglos
@@ -37,6 +41,7 @@ Nodo *nodos;
 Vehiculo *autos;
 Vehiculo *mejores;
 vector<int> id_nodos;
+vector<int> *conflicto;
 
 // Funciones
 void leer_archivo(void);

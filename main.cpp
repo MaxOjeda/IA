@@ -5,13 +5,16 @@
 void leer_archivo(void) {
     FILE *arch;
 
-    arch = fopen(arch_entrada, "r");
+    arch = fopen("Instancias/GF1.txt", "r");
     // Leer tamano de la instancia
     int read = fscanf(arch, "%d", &Tamano);
 
     // Creacion de arreglo de nodos
     nodos = new Nodo[Tamano];
     
+    // Creacion de conjuntos de conflicto (CBJ)
+    conflicto = new vector<int>[Tamano-1];
+
     // Arreglo de distancias
     dist = new int*[Tamano];
     for (int i = 0; i < Tamano; i++){
@@ -38,7 +41,7 @@ void leer_archivo(void) {
             dist[j][i] = dist[i][j];
         }
     }
-
+    //
     if(debug){
         for(int i=0;i<Tamano;i++)
             for(int j=0;j<Tamano;j++)
@@ -63,7 +66,7 @@ void leer_archivo(void) {
        autos[i].dist_total = 0;
        autos[i].tour = vector<int> {1};
     }
-    
+    // Print de matriz de distnacias
     for(int k=0;k<n_vehiculos;k++){
         cout<<autos[k].id<<" "<<autos[k].dem_line<<" "<<autos[k].dist_total<<endl;
     }
@@ -88,94 +91,140 @@ void leer_archivo(void) {
 }
 
 int parametros_de_entrada(int argc, char **argv) {
-    // Archivo de entrada
-    arch_entrada = (char*)(argv[1]);
-
-    // Archivo de salida
-    arch_salida = (char*)(argv[2]);
-
     // Opcion de debug
-    debug = atoi(argv[3]);
+    debug = atoi(argv[1]);
 
     return 1;
 }
 
 
 void evaluar(){
+    /* En esta funcion se evalua si la distancia total obtenida
+    sumando la distancia de todos los vehiculos es mejor que la anterior */
     float sum = 0;
+    // Sumar las distancias de los vehiculos
     for(int i=0; i<cantVehiculos; i++){
         sum += autos[i].dist_total;
     }
-    cout<<"DISTANCIA: "<<sum<<"\n";
+    cout<<"Distancia: "<<sum<<"\n";
+    // Si la distancia es menor que la mejor
     if(sum < menor_distancia){
         menor_distancia = sum;
+        // Se guarda los datos de los vehiculos con mejor evaluacion
         for(int j=0; j<cantVehiculos; j++){
             mejores[j] = autos[j];
         }
     }
 }
 
+void cbj(vector<int> clientes){
+    /* En esta funcion se obtiene el nodo al cual hay que retornar
+    una vez creado el conjunto de conflictos */ 
+    int nodo_conf = clientes.front();
+    float dem = nodos[nodo_conf].demanda;
+    bool flag = false;
+    // Se revisa que nodos realizan conflicto con el nodo_conf
+    for(int i=cantVehiculos; i>0; i--){
+        if(flag == true) break;
+        float demline = 0, demback = 0;
+        // Se revisa los nodos que no permitian que el nodo fuese agregado al tour por la restriccion de capacidad
+        for(const auto& value: autos[i-1].tour){
+            if(nodos[value-1].tipo == 1){
+                demline += nodos[value-1].demanda;
+                if(demline + dem > capacidad){
+                    conflicto[nodo_conf-2].push_back(value);
+                    flag = true;
+                    break;
+                }
+            }else{
+                demback += nodos[value-1].demanda;
+                if(demback + dem > capacidad){
+                    conflicto[nodo_conf-2].push_back(value);
+                    flag = true;
+                    break;
+                }
+            }
+        }
+    }
+    // Se guarda el nodo al cual hay que retornar en la variable global nodoRetorno
+    nodoRetorno = conflicto[nodo_conf-2].front() - 1;
+    conflicto[nodo_conf-2] = {};
+    return;
+}
+
 void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculos, int nodoActual){
+    // Cantidad de iteraciones antes de terminar
+    if(stop == 2500000) return;
+    stop++;
     // Se revisa si no quedan nodos
     if (clientes.size() == 0 && nVehiculos == 0){
-        cout<<"TODAS LAS RUTAS\n";
+        cout<<"Solucion encontrada: \n";
         // Mostrar rutas
         float dist_deposito;
         int ultimo_nodo;
         for(int i = 0; i < cantVehiculos; i++){
             ultimo_nodo = autos[i].tour.back() - 1;
             dist_deposito = dist[ultimo_nodo][0];
+            //Se suma la distancia del ultimo nodo al deposito y se agrega al tour
             autos[i].dist_total += dist_deposito;
             autos[i].tour.push_back(nodos[0].id);
             
+            // Mostrar rutas
             for(const auto& value: autos[i].tour) {
-            cout << value << "->";
-            }   
+                cout << value << "->";
+            }
         cout<<"\n";
-        }evaluar();
-        cout<<"M. DISTANCIA: "<<menor_distancia<<"\n";
-        cout<<"\n";
+        }
+        // Se evalua la solucion encontrada
+        evaluar();
+        cout<<"Menor distancia: "<<menor_distancia<<"\n";
+        // Se elimina el desposito de la ruta de los vehiculos y se resta la distancia al mismo
         for(int i = 0; i < cantVehiculos; i++){
             autos[i].tour.pop_back();
             ultimo_nodo = autos[i].tour.back() - 1;
             autos[i].dist_total -= dist[ultimo_nodo][0];
         }
-        
         return;
     
+    }else if(clientes.size() > 0 && nVehiculos == 0){
+        // Caso en que no queden vehiculos disponibles pero restan nodos sin ocupar
+        if(debug) cout<<"Solucion infactible\n";
+        // Se busca al nodo al cual retorna con CBJ
+        cbj(clientes);
+        // Este flag cambiara cuando se vuelva al nodo entregado por el CBJ
+        cbj_flag = true;
+        return;
+
     }else{
         int idxVeh = nVehiculos-1;
-
         // Cuando no queden nodos disponibles para una ruta
         if(clientes.size() == 0){
-            cout<<"Ruta final veh "<<nVehiculos<<"\n";
-            for(const auto& value: autos[idxVeh].tour) {
-                cout << value << "-->";
-            }
-            cout<<"\n";
             // Crear nuevo vector de nodos sin los que ya fueron ocupados
             vector <int> temp = id_nodos;
             for(int i=0; i<autos[idxVeh].tour.size(); i++){
                 temp.erase(remove(temp.begin(), temp.end(), autos[idxVeh].tour[i]), temp.end());
             }
-
-
             //Cambiar de vehiculo
-            nVehiculos -= 1;    
-            cout<<"ALOOOOO "<<nVehiculos<<" "<<temp.size()<<"\n";
-            //autos[idxVeh].tour.pop_back();
+            nVehiculos -= 1;
+
+            // Llamado recursivo
             busqueda_de_rutas(temp, temp, nVehiculos, 0);
             
         }
         else{
-            if(autos[idxVeh].tour.size() > 2 && autos[idxVeh].tour.back() == 1){
-                return;
-            }
+            // Se instancias los nodos uno por uno agregando al tour del vehiculo dicho nodo junto
+            // con la distancia y la demanda
             for(int i=0; i < clientes.size(); i++){
                 int nodoNuevo = clientes[i]-1;
                 float distancia = dist[nodoActual][nodoNuevo];
                 float newPeso = nodos[nodoNuevo].demanda;
+                // Vector que tendra los clientes que no fueron eliminados por FC
                 vector <int> clientesFiltrados = clientes;
+                
+                // Se asegura que no se agrege un nodo ya existente en la ruta
+                if(find(autos[idxVeh].tour.begin(),autos[idxVeh].tour.end(), nodos[nodoNuevo].id) != autos[idxVeh].tour.end() || autos[idxVeh].tour.back() == nodos[nodoNuevo].id){
+                    return;
+                }
                 
                 // Cliente tipo Linehaul
                 if (nodos[nodoNuevo].tipo == 1) {
@@ -183,56 +232,26 @@ void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculo
                     autos[idxVeh].dist_total += distancia;
                     autos[idxVeh].tour.push_back(nodos[nodoNuevo].id);
 
-
-                    for(const auto& value: autos[idxVeh].tour) {
-                        cout << value << "-->";
-                    }
-                    cout<<"\n";
-
-                    cout<<"Antes\n";
-                    for(int z=0; z<clientesFiltrados.size(); z++){
-                        cout<<clientesFiltrados[z]<<"; ";
-                    }
-                    cout<<"\n";
-
+                    // Forward Checking
                     clientesFiltrados.erase(clientesFiltrados.begin() + i);
                     clientesFiltrados = filtrar(clientesFiltrados, idxVeh);
-                    
-                    cout<<"Despues\n";
-                    for(int z=0; z<clientesFiltrados.size(); z++){
-                        cout<<clientesFiltrados[z]<<"; ";
-                    }
-                    cout<<"\n\n";
-                    //busqueda_de_rutas(clientesFiltrados, Tamano, nVehiculos, nodoNuevo);
-
-                    
+                
+                // Clinete tipo backhaul
                 }else if(nodos[nodoNuevo].tipo == 2){
                     autos[idxVeh].dem_back += newPeso;
                     autos[idxVeh].dist_total += distancia;
                     autos[idxVeh].tour.push_back(nodos[nodoNuevo].id);
-
-                    for(const auto& value: autos[idxVeh].tour) {
-                        cout << value << "-->";
-                    }
-                    cout<<"\n";
-
-                    cout<<"Antes\n";
-                    for(int z=0; z<clientesFiltrados.size(); z++){
-                        cout<<clientesFiltrados[z]<<"; ";
-                    }
-                    cout<<"\n";
-
+          
+                    // Forward Checking
                     clientesFiltrados.erase(clientesFiltrados.begin());
                     clientesFiltrados = filtrar(clientesFiltrados, idxVeh);
 
-                    cout<<"Despues\n";
-                    for(int z=0; z<clientesFiltrados.size(); z++){
-                        cout<<clientesFiltrados[z]<<"; ";
-                    }
-                    cout<<"\n\n";
-                    //busqueda_de_rutas(clientesFiltrados, Tamano, nVehiculos, nodoNuevo);
                 }
+                cout<<"\n";
+                // Llamado recursivo con los clientesFiltrados
                 busqueda_de_rutas(clientesFiltrados, id_nodos, nVehiculos, nodoNuevo);
+
+                // Se elimina el nodo agregado, la distancia a este y su demanda dependieno el tipo
                 int ultimo_nodo = autos[idxVeh].tour.back() - 1;
                 if(nodos[ultimo_nodo].tipo == 1){
                     autos[idxVeh].dem_line -= nodos[ultimo_nodo].demanda;
@@ -240,8 +259,14 @@ void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculo
                     autos[idxVeh].dem_back -= nodos[ultimo_nodo].demanda;
                 }
                 autos[idxVeh].tour.pop_back();
-                autos[idxVeh].dist_total -= newPeso;
-                
+                autos[idxVeh].dist_total -= distancia;
+
+                // Si hay que realizar cbj y no se ha alcanzado el nodoRetorno, se vuelve al anterior
+                if (cbj_flag == true && nodoRetorno != nodoActual){
+                    saltos +=1;
+                    if(debug) cout<<"Salto: "<<saltos<<" Nodo actual:" <<nodoActual+1<<" Tour size: "<<autos[idxVeh].tour.size()<<"\n";
+                    return;}
+                cbj_flag = false;
             }
         }
     }
@@ -249,6 +274,10 @@ void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculo
 }
 
 vector<int> filtrar(vector<int> v_nodos, int idxVehiculo){
+    /* Funcion de Forward Checking. El vector v_nodos contiene los nodos disponibles.
+    Se eliminan los nodos los cuales no cumpliran las restricciones de capacidad y demanda
+    para linehaul y backahul. El vector borrar contiene los nodos que no van cumpliendo con las restricciones
+    para luego eliminarlos de v_nodos */
     vector<int> borrar;
     int idxNodo;
     for(int i=0; i<v_nodos.size(); i++){
@@ -268,20 +297,25 @@ vector<int> filtrar(vector<int> v_nodos, int idxVehiculo){
 
 
 int main (int argc, char *argv[]){
+    // Lectura de parametros de entrada
     if (!parametros_de_entrada(argc,argv)) {
         cout<<"Error al leer los parametros de entrada";
         exit(1);
     }
-    cout<<"Y aqui?\n";
+    // Lectura del archivo de instancia
     leer_archivo();
 
-    mejores  = autos;
     // Vector de nodos sin el deposito
     for(int i = 1; i < Tamano; i++)
         id_nodos.push_back(nodos[i].id);
-    
-    menor_distancia = MAX;
-    busqueda_de_rutas(id_nodos, id_nodos, cantVehiculos, 0);
 
+    stop = 0;
+    saltos = 0;
+    mejores  = autos;
+    menor_distancia = MAX;
+    
+    // Comienzo de busqueda de rutas
+    busqueda_de_rutas(id_nodos, id_nodos, cantVehiculos, 0);
+    cout<<"Limite alcanzado\n";
     return 0;
 }
