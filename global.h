@@ -25,7 +25,7 @@ struct Vehiculo {
 // Variables de los parametros de entrada
 char* arch_entrada;
 char* arch_salida;
-int debug;
+string instancia;
 int cantVehiculos;
 float capacidad;
 float menor_distancia;

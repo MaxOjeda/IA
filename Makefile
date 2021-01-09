@@ -2,13 +2,12 @@ flags=-Wno-deprecated -g -ggdb
 comp=g++
 prog=VRPB+FC+CBJ
 
-debug=1
+ins ?= GA1.txt
 
 comp:$(prog)
 
 exe:$(prog)
-	#valgrind --leak-check=full --show-reachable=yes 
-	./$(prog) $(debug)
+	./$(prog) $(ins)
 
 $(prog): main.o
 	$(comp) main.o -o $(prog) $(flags)

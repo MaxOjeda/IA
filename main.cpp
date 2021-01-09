@@ -3,12 +3,20 @@
 
 
 void leer_archivo(void) {
-    FILE *arch;
+    ifstream file(instancia);
+    if(!file){
+        cout<<"\nError al abrir el archivo\n";
+        cout<<"Instruccion para ejecutar: make exe ins={instancia.txt}\n\n";
+        exit(1);
+    }
+    stringstream line;
+    string line2;
 
-    arch = fopen("Instancias/GF1.txt", "r");
     // Leer tamano de la instancia
-    int read = fscanf(arch, "%d", &Tamano);
-
+    getline(file, line2);
+    line << line2;
+    line >> Tamano;
+    cout<<Tamano<<endl;
     // Creacion de arreglo de nodos
     nodos = new Nodo[Tamano];
     
@@ -25,7 +33,9 @@ void leer_archivo(void) {
     int cont = 0;
     // Guardar informacion de cada nodo
     for(int j = 0; j < Tamano; j++){
-        int read =  fscanf(arch, "%d %d %f %f\n", &t, &id, &x, &y);
+        getline(file, line2);
+        line << line2;
+        line >> t >> id >> x >> y;
         nodos[id-1].x = x;
         nodos[id-1].y = y;
         nodos[id-1].tipo = t;
@@ -42,23 +52,25 @@ void leer_archivo(void) {
         }
     }
     //
-    if(debug){
-        for(int i=0;i<Tamano;i++)
-            for(int j=0;j<Tamano;j++)
-                cout<<dist[i][j]<<",";
-            cout<<endl;  
-    }
+    for(int i=0;i<Tamano;i++)
+        for(int j=0;j<Tamano;j++)
+            cout<<dist[i][j]<<",";
+        cout<<endl;  
+    
 
     int n_vehiculos;
     float cap;
     // Lectura de cantidad de vehiculos y capacidad
-    read =  fscanf(arch, "%d %f\n", &n_vehiculos, &cap);
+    getline(file, line2);
+    line << line2;
+    line >> n_vehiculos >> cap;
     // Creacion de lista de los vehiculos con configuraciones iniciales
     cantVehiculos = n_vehiculos;
     capacidad = cap;
     cout<<cantVehiculos<<" "<<capacidad<<endl;
     // Creacion de arreglo de vehiculos
     autos = new Vehiculo[n_vehiculos];
+    mejores = new Vehiculo[n_vehiculos];
     for(int i = 0; i < n_vehiculos; i++){
        autos[i].id = i+1;
        autos[i].dem_line = 0;
@@ -75,24 +87,23 @@ void leer_archivo(void) {
     float demand;
     // Setear la demanda de los nodos (clientes linehaul y backhaul)
     for(int j = 0; j < (Tamano-1); j++){
-        int read = fscanf(arch, "%d %f\n", &nodeID, &demand);
+        getline(file, line2);
+        line << line2;
+        line >> nodeID >> demand;
         nodos[nodeID-1].demanda += demand;
     }
 
-    if(debug){
-        cout<<"NodoID | Tipo | Demanda"<<endl;
-        for(int i=1; i < (Tamano); i++){
-            cout<<"  "<<nodos[i].id<<"\t"<<nodos[i].tipo<<" \t"<<nodos[i].demanda<<endl;
-        }
+    cout<<"NodoID | Tipo | Demanda"<<endl;
+    for(int i=1; i < (Tamano); i++){
+        cout<<"  "<<nodos[i].id<<"\t"<<nodos[i].tipo<<" \t"<<nodos[i].demanda<<endl;
     }
-
-    fclose(arch);
+    
     return;
 }
 
 int parametros_de_entrada(int argc, char **argv) {
-    // Opcion de debug
-    debug = atoi(argv[1]);
+    // Nombre del archivo
+    instancia = argv[1];
 
     return 1;
 }
@@ -154,7 +165,7 @@ void cbj(vector<int> clientes){
 
 void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculos, int nodoActual){
     // Cantidad de iteraciones antes de terminar
-    if(stop == 2500000) return;
+    if(stop == 25000000) return;
     stop++;
     // Se revisa si no quedan nodos
     if (clientes.size() == 0 && nVehiculos == 0){
@@ -188,7 +199,7 @@ void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculo
     
     }else if(clientes.size() > 0 && nVehiculos == 0){
         // Caso en que no queden vehiculos disponibles pero restan nodos sin ocupar
-        if(debug) cout<<"Solucion infactible\n";
+        cout<<"Solucion infactible\n";
         // Se busca al nodo al cual retorna con CBJ
         cbj(clientes);
         // Este flag cambiara cuando se vuelva al nodo entregado por el CBJ
@@ -264,7 +275,7 @@ void busqueda_de_rutas(vector<int> clientes, vector<int> id_nodos, int nVehiculo
                 // Si hay que realizar cbj y no se ha alcanzado el nodoRetorno, se vuelve al anterior
                 if (cbj_flag == true && nodoRetorno != nodoActual){
                     saltos +=1;
-                    if(debug) cout<<"Salto: "<<saltos<<" Nodo actual:" <<nodoActual+1<<" Tour size: "<<autos[idxVeh].tour.size()<<"\n";
+                    cout<<"Salto: "<<saltos<<" Nodo actual:" <<nodoActual+1<<" Tour size: "<<autos[idxVeh].tour.size()<<"\n";
                     return;}
                 cbj_flag = false;
             }
@@ -295,8 +306,36 @@ vector<int> filtrar(vector<int> v_nodos, int idxVehiculo){
     return v_nodos;
 }
 
+void crear_archivo(double tiempo){
+    /* Escritura en archivo de salida */
+    ofstream file;
+    // Se le quita el .txt al nombre de la instancia y se agrega el .out
+    string reduce = instancia.substr(0, instancia.size()-4);
+    string ext = ".out";
+    string out = reduce + ext;
+    file.open(out);
+    // Primera linea del archivo: Menor distancia   #Clietnes   #Vehiculos  Tiempo en seg
+    file << menor_distancia <<"\t"<< Tamano <<"\t"<< cantVehiculos <<"\t" << tiempo << "\n";
+    // Se escriben las lineas para cada auto
+    for(int i=cantVehiculos; i>0; i--){
+        int unos = 0;
+        if(mejores[i-1].tour.size() > 2){
+            for(const auto& value: mejores[i-1].tour) {
+                if(value == 1) unos++;
+                if(unos == 2){
+                    file << value;
+                }else{
+                    file << value << "->";
+                }
+            }
+            file << "\t" << mejores[i-1].dist_total << "\t" << mejores[i-1].dem_line + mejores[i-1].dem_back << "\n";
+        }
+    }
+}
 
 int main (int argc, char *argv[]){
+    unsigned t0, t1;
+    t0=clock();
     // Lectura de parametros de entrada
     if (!parametros_de_entrada(argc,argv)) {
         cout<<"Error al leer los parametros de entrada";
@@ -311,11 +350,17 @@ int main (int argc, char *argv[]){
 
     stop = 0;
     saltos = 0;
-    mejores  = autos;
+    //mejores  = autos;
     menor_distancia = MAX;
     
     // Comienzo de busqueda de rutas
     busqueda_de_rutas(id_nodos, id_nodos, cantVehiculos, 0);
     cout<<"Limite alcanzado\n";
+    t1 = clock();
+    double time = (double(t1-t0)/CLOCKS_PER_SEC);    
+
+    // Creacion y escritura en archivo de salida
+    crear_archivo(time);
+
     return 0;
 }
